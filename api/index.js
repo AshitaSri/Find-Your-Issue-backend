@@ -5,7 +5,7 @@ const homeRouter = require('./home');
 
 const app = express();
 const corsOptions = {
-    origin: 'https://find-your-issue.vercel.app',
+    origin: ['https://find-your-issue.vercel.app', 'http://localhost:3000'],
     optionsSuccessStatus: 200
   };
   
