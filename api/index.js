@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const homeRouter = require('./home');
+const config = require('./config');
+const repoSearchRoute = require('./routes/repoSearchRoute');
+//const homeRouter = require('./home');
 
 
 const app = express();
@@ -12,7 +14,8 @@ const corsOptions = {
   app.use(cors(corsOptions));
 
 
-app.use('/', homeRouter);
+//app.use('/', homeRouter);
+app.use('/', repoSearchRoute);
 
 app.get("/", (req, res) => res.send("Express on Vercel"));
 
