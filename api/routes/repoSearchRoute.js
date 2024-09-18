@@ -9,12 +9,14 @@ function validateQuery(query) {
     return operatorCount <= 5;
 }
 
-function buildQueryString(languages, minStars, maxStars) {
+function buildQueryString(languages, minStars, maxStars, minIssues = 1) {
     let queryString = 'is:public';
+    
     if (languages) {
         const languageArray = languages.split(',');
         queryString += ` language:${languageArray.join(' language:')}`;
     }
+    
     if (minStars && maxStars) {
         queryString += ` stars:${minStars}..${maxStars}`;
     } else if (minStars) {
@@ -22,20 +24,24 @@ function buildQueryString(languages, minStars, maxStars) {
     } else if (maxStars) {
         queryString += ` stars:<=${maxStars}`;
     }
+    
+    // Always include the condition for open issues, with a default of 1
+    queryString += ` open-issues:>=${minIssues}`;
+    
     return queryString;
 }
 
 router.get('/repos', async (req, res, next) => {
     try {
-        const { languages, minStars, maxStars } = req.query;
-        const queryString = buildQueryString(languages, minStars, maxStars);
-
+        const { languages, minStars, maxStars, minIssues = 1 } = req.query;
+        const queryString = buildQueryString(languages, minStars, maxStars, minIssues);
+        
         if (!validateQuery(queryString)) {
             return res.status(400).json({ error: 'Query is too long or has too many operators' });
         }
-
+        
         const { repos, rateLimit } = await githubApiService.searchRepositories(queryString);
-
+        
         res.json({
             repos: repos.map(repo => ({
                 name: repo.name,
@@ -44,6 +50,7 @@ router.get('/repos', async (req, res, next) => {
                 description: repo.description,
                 stargazers_count: repo.stargazers_count,
                 language: repo.language,
+                open_issues_count: repo.open_issues_count,
             })),
             rateLimit
         });
