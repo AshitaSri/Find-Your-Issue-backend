@@ -5,9 +5,9 @@ const cors = require('cors');
 const repoSearchRoute = require('./api/routes/repoSearchRoute');
 
 const app = express();
-
+//new change to redeploy
 const corsOptions = {
-    origin: ['http://localhost:3000', 'https://find-your-issue.vercel.app'],
+    origin: ['http://localhost:3001', 'https://find-your-issue.vercel.app'],
     optionsSuccessStatus: 200
 };
 
