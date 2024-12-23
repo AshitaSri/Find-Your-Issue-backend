@@ -15,19 +15,25 @@ class GitHubApiService {
 
     async searchRepositories(queryString, page = 1, perPage = 100) {
         try {
+            // Add open issues filter to the query
+            const enhancedQuery = `${queryString} is:public archived:false has:issues`;
+            
             const response = await this.axiosInstance.get('/search/repositories', {
                 params: {
-                    q: queryString,
+                    q: enhancedQuery,
                     per_page: perPage,
                     page: page,
-                    sort: 'updated',
+                    sort: 'updated',  // You might want to change this to 'issues' to prioritize repos with more issues
                     order: 'desc'
                 }
             });
 
+            // Filter repositories to only include those with open issues
+            const filteredRepos = response.data.items.filter(repo => repo.open_issues_count > 0);
+
             return {
-                repos: response.data.items,
-                totalCount: response.data.total_count,
+                repos: filteredRepos,
+                totalCount: filteredRepos.length,
                 currentPage: page,
                 hasNextPage: response.data.total_count > page * perPage,
                 rateLimit: {
