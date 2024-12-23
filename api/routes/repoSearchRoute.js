@@ -9,38 +9,47 @@ function validateQuery(query) {
     return operatorCount <= 5;
 }
 
-function buildQueryString(languages, minStars, maxStars, minIssues = 1) {
+function getLastTwoMonthsDate() {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 2);
+    return date.toISOString().split('T')[0];
+}
+
+function buildQueryString(languages, maxStars) {
+    const lastTwoMonths = getLastTwoMonthsDate();
     let queryString = 'is:public';
     
+    // Add language filter
     if (languages) {
         const languageArray = languages.split(',');
         queryString += ` language:${languageArray.join(' language:')}`;
     }
     
-    if (minStars && maxStars) {
-        queryString += ` stars:${minStars}..${maxStars}`;
-    } else if (minStars) {
-        queryString += ` stars:>=${minStars}`;
-    } else if (maxStars) {
+    // Add max stars filter if specified
+    if (maxStars) {
         queryString += ` stars:<=${maxStars}`;
     }
     
-    // Always include the condition for open issues, with a default of 1
-    queryString += ` open-issues:>=${minIssues}`;
+    // Add filter for issues created in the last two months
+    queryString += ` created:>=${lastTwoMonths}`;
+    
+    // Ensure the repository has open issues
+    queryString += ' is:issue is:open';
     
     return queryString;
 }
 
 router.get('/repos', async (req, res, next) => {
     try {
-        const { languages, minStars, maxStars, minIssues = 1 } = req.query;
-        const queryString = buildQueryString(languages, minStars, maxStars, minIssues);
+        const { languages, maxStars, page = 1, per_page = 100 } = req.query;
+        const queryString = buildQueryString(languages, maxStars);
         
         if (!validateQuery(queryString)) {
             return res.status(400).json({ error: 'Query is too long or has too many operators' });
         }
         
-        const { repos, rateLimit } = await githubApiService.searchRepositories(queryString);
+        const { repos, totalCount, currentPage, hasNextPage, rateLimit } = 
+            await githubApiService.searchRepositories(queryString, parseInt(page), parseInt(per_page));
         
         res.json({
             repos: repos.map(repo => ({
@@ -51,7 +60,15 @@ router.get('/repos', async (req, res, next) => {
                 stargazers_count: repo.stargazers_count,
                 language: repo.language,
                 open_issues_count: repo.open_issues_count,
+                created_at: repo.created_at,
+                updated_at: repo.updated_at
             })),
+            pagination: {
+                totalCount,
+                currentPage,
+                hasNextPage,
+                itemsPerPage: parseInt(per_page)
+            },
             rateLimit
         });
     } catch (error) {

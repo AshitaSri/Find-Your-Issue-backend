@@ -13,19 +13,27 @@ class GitHubApiService {
         });
     }
 
-    async searchRepositories(queryString) {
+    async searchRepositories(queryString, page = 1, perPage = 100) {
         try {
             const response = await this.axiosInstance.get('/search/repositories', {
                 params: {
                     q: queryString,
-                    per_page: 30,
+                    per_page: perPage,
+                    page: page,
+                    sort: 'updated',
+                    order: 'desc'
                 }
             });
+
             return {
                 repos: response.data.items,
+                totalCount: response.data.total_count,
+                currentPage: page,
+                hasNextPage: response.data.total_count > page * perPage,
                 rateLimit: {
                     remaining: response.headers['x-ratelimit-remaining'],
                     resetAt: new Date(response.headers['x-ratelimit-reset'] * 1000).toISOString(),
+                    total: response.headers['x-ratelimit-limit']
                 }
             };
         } catch (error) {
