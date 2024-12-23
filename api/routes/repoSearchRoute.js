@@ -9,14 +9,7 @@ function validateQuery(query) {
     return operatorCount <= 5;
 }
 
-function getLastTwoMonthsDate() {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 2);
-    return date.toISOString().split('T')[0];
-}
-
-function buildQueryString(languages, maxStars) {
-    const lastTwoMonths = getLastTwoMonthsDate();
+function buildQueryString(languages, maxStars, showOnlyWithIssues = false) {
     let queryString = 'is:public';
     
     // Add language filter
@@ -30,26 +23,36 @@ function buildQueryString(languages, maxStars) {
         queryString += ` stars:<=${maxStars}`;
     }
     
-    // Add filter for issues created in the last two months
-    queryString += ` created:>=${lastTwoMonths}`;
-    
-    // Ensure the repository has open issues
-    queryString += ' is:issue is:open';
+    // Add issues filter only if showOnlyWithIssues is true
+    if (showOnlyWithIssues) {
+        queryString += ' is:issue is:open has:issues';
+    }
     
     return queryString;
 }
 
 router.get('/repos', async (req, res, next) => {
     try {
-        const { languages, maxStars, page = 1, per_page = 100 } = req.query;
-        const queryString = buildQueryString(languages, maxStars);
+        const { 
+            languages, 
+            maxStars, 
+            page = 1, 
+            per_page = 100,
+            showOnlyWithIssues = false  // New parameter
+        } = req.query;
+        
+        const queryString = buildQueryString(
+            languages, 
+            maxStars, 
+            showOnlyWithIssues === 'true' || showOnlyWithIssues === true
+        );
         
         if (!validateQuery(queryString)) {
             return res.status(400).json({ error: 'Query is too long or has too many operators' });
         }
         
         const { repos, totalCount, currentPage, hasNextPage, rateLimit } = 
-            await githubApiService.searchRepositories(queryString, parseInt(page), parseInt(per_page));
+            await githubApiService.searchRepositories(queryString, parseInt(page), parseInt(per_page), showOnlyWithIssues === 'true' || showOnlyWithIssues === true);
         
         res.json({
             repos: repos.map(repo => ({
