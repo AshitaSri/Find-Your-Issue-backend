@@ -13,23 +13,55 @@ class GitHubApiService {
         });
     }
 
-    async searchRepositories(queryString, page = 1, perPage = 100) {
+    async searchRepositories(queryString, page = 1, perPage = 100, showOnlyWithIssues = false) {
         try {
-            // Add open issues filter to the query
-            const enhancedQuery = `${queryString} is:public archived:false has:issues`;
+            // Base query
+            const enhancedQuery = `${queryString} is:public archived:false`;
             
             const response = await this.axiosInstance.get('/search/repositories', {
                 params: {
                     q: enhancedQuery,
                     per_page: perPage,
                     page: page,
-                    sort: 'updated',  // You might want to change this to 'issues' to prioritize repos with more issues
+                    sort: 'updated',
                     order: 'desc'
                 }
             });
 
-            // Filter repositories to only include those with open issues
-            const filteredRepos = response.data.items.filter(repo => repo.open_issues_count > 0);
+            let filteredRepos = response.data.items;
+
+            // If showOnlyWithIssues is true, filter and get issue details
+            if (showOnlyWithIssues) {
+                // Filter repositories to only include those with open issues
+                filteredRepos = response.data.items.filter(repo => repo.open_issues_count > 0);
+
+                // Get issue details for filtered repos
+                const reposWithDetails = await Promise.all(filteredRepos.map(async (repo) => {
+                    try {
+                        const issuesResponse = await this.axiosInstance.get(`/repos/${repo.full_name}/issues`, {
+                            params: {
+                                state: 'open',
+                                per_page: 1,
+                                sort: 'created',
+                                direction: 'desc'
+                            }
+                        });
+
+                        return {
+                            ...repo,
+                            latest_issue_date: issuesResponse.data[0]?.created_at
+                        };
+                    } catch (error) {
+                        console.error(`Error fetching issues for ${repo.full_name}:`, error);
+                        return repo;
+                    }
+                }));
+
+                // Sort by latest issue date if showing only repos with issues
+                filteredRepos = reposWithDetails
+                    .filter(repo => repo.latest_issue_date)
+                    .sort((a, b) => new Date(b.latest_issue_date) - new Date(a.latest_issue_date));
+            }
 
             return {
                 repos: filteredRepos,
